@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  talker:
+    build: .
+    container_name: ros2_talker
+    tty: true
+    command: ["bash", "-c", "source /ros2_ws/install/setup.bash && ros2 run demo_nodes_cpp talker"]
+
+  listener:
+    build: .
+    container_name: ros2_listener
+    tty: true
+    command: ["bash", "-c", "source /ros2_ws/install/setup.bash && ros2 run demo_nodes_py listener"]
