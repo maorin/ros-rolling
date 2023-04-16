@@ -7,12 +7,40 @@ from sensor_msgs.msg import Image
 import subprocess
 import os
 import sys
+import scrcpy_ros.darknet as dn
+
 
 class ScrcpyPublisher(Node):
     def __init__(self):
         super().__init__('scrcpy_publisher')
         self.publisher_ = self.create_publisher(Image, 'scrcpy_image', 10)
         self.bridge = CvBridge()
+
+        # Set up YOLOv3 model
+        self.yolo_net = cv2.dnn.readNet("/data/yolo/yolov3.weights", "/data/yolo/yolov3.cfg")
+        self.yolo_net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+        self.yolo_net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+    
+        # Load object classes
+        with open("/data/yolo/coco.names", "rt") as f:
+            self.classes = f.read().rstrip('\n').split('\n')
+
+    def detect_objects(self, frame):
+        # Preprocess the frame
+        blob = cv2.dnn.blobFromImage(frame, 1 / 255, (416, 416), (0, 0, 0), True, crop=False)
+        self.yolo_net.setInput(blob)
+    
+        # Get output layers
+        layer_names = self.yolo_net.getLayerNames()
+        output_layer_indexes = self.yolo_net.getUnconnectedOutLayers().flatten()
+        output_layers = [layer_names[i - 1] for i in output_layer_indexes]
+    
+        # Forward pass and get detections
+        detections = self.yolo_net.forward(output_layers)
+    
+        return detections
+
+
 
     def create_v4l2_device(self):
         # Check if v4l2loopback module is loaded
@@ -66,29 +94,53 @@ class ScrcpyPublisher(Node):
         print("-------------%s" % video_device)
     
         # Start scrcpy in the background
-        scrcpy_process = subprocess.Popen(["scrcpy", f"--v4l2-sink=/dev/video0"])
+        scrcpy_process = subprocess.Popen(["scrcpy", f"--no-display", f"--v4l2-sink=/dev/video0"])
         
 
 
         # Open virtual video device
         cap = cv2.VideoCapture('/dev/video0')
 
-        # Create an OpenCV window
-        cv2.namedWindow("Scrcpy Stream", cv2.WINDOW_NORMAL)
-        cv2.resizeWindow("Scrcpy Stream", 800, 480)
+        # 设置 Darknet 网络参数
+        config_file = "/data/yolo/yolov3.cfg"
+        data_file = "/home/maojj/project/darknet/cfg/coco.data"
+        weights_file = "/data/yolo/yolov3.weights"
+
+        # 加载 Darknet 网络
+        network, class_names, class_colors = dn.load_network(config_file, data_file, weights_file)
+
+        # 获取网络输入的宽度和高度
+        darknet_width = dn.network_width(network)
+        darknet_height = dn.network_height(network)
 
         while rclpy.ok():
             # Capture frame from video device
-            ret, frame_data = cap.read()
+            ret, frame = cap.read()
 
             if ret:
-                # Display frame in OpenCV window
-                cv2.imshow("Scrcpy Stream", frame_data)
-                cv2.waitKey(1)
+                # 将帧从 BGR 转换为 RGB，然后调整尺寸以适应 Darknet 网络
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frame_resized = cv2.resize(frame_rgb, (darknet_width, darknet_height), interpolation=cv2.INTER_LINEAR)
+                
+                # 将 frame_resized 转换为 IMAGE 类型
+                frame_resized_image = dn.make_image(frame_resized.shape[1], frame_resized.shape[0], frame_resized.shape[2])
+                dn.copy_image_from_bytes(frame_resized_image, frame_resized.tobytes())
+                
+                # 使用 Darknet 网络对帧进行处理
+                detections = dn.detect_image(network, class_names, frame_resized_image)
+                print("------------11111111-----------------")
+                print(detections)
+                print("------------2222222222-------------------------")
 
                 # Convert OpenCV image to ROS 2 image message
-                ros_image = self.bridge.cv2_to_imgmsg(frame_data, "bgr8")
+                ros_image = self.bridge.cv2_to_imgmsg(frame, "bgr8")
                 self.publisher_.publish(ros_image)
+
+            else:
+                print("Error: Unable to read frame.")
+                break
+
+
 
         # Close OpenCV window
         cv2.destroyAllWindows()

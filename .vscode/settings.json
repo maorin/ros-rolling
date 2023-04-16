@@ -1,0 +1,15 @@
+{
+    "ros.distro": "rolling",
+    "python.autoComplete.extraPaths": [
+        "/home/maojj/project/ros-rolling/build/scrcpy_ros",
+        "/home/maojj/project/ros-rolling/install/scrcpy_ros/lib/python3.10/site-packages",
+        "/opt/ros/rolling/lib/python3.10/site-packages",
+        "/opt/ros/rolling/local/lib/python3.10/dist-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/maojj/project/ros-rolling/build/scrcpy_ros",
+        "/home/maojj/project/ros-rolling/install/scrcpy_ros/lib/python3.10/site-packages",
+        "/opt/ros/rolling/lib/python3.10/site-packages",
+        "/opt/ros/rolling/local/lib/python3.10/dist-packages"
+    ]
+}

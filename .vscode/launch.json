@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "ROS2: Debug scrcpy_publisher",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/install/scrcpy_ros/lib/scrcpy_ros/scrcpy_publisher",
+            "args": [],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "PYTHONPATH": "${env:PYTHONPATH}:${workspaceFolder}/install/scrcpy_ros/lib/python3.10/site-packages"        
+            },
+            "preLaunchTask": "colcon_build"
+        }
+    ]
+}
