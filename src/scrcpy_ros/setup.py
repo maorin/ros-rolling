@@ -10,7 +10,8 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        ('lib', ['resource/libdarknet.so'])
+        ('lib', ['resource/libdarknet.so']),
+        ('share', ['resource/liblane_msg__rosidl_generator_py.so']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -35,6 +36,7 @@ setup(
     entry_points={
         'console_scripts': [
             'scrcpy_publisher = scrcpy_ros.scrcpy_publisher:main',
+            'detection_subscriber = scrcpy_ros.detection_subscriber:main',
         ],
     },
 )

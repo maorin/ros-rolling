@@ -10,10 +10,14 @@ import sys
 import scrcpy_ros.darknet as dn
 
 
+from lane_msg.msg import Detection
+
+
 class ScrcpyPublisher(Node):
     def __init__(self):
         super().__init__('scrcpy_publisher')
         self.publisher_ = self.create_publisher(Image, 'scrcpy_image', 10)
+        self.detection_publisher_ = self.create_publisher(Detection, 'detections', 10)
         self.bridge = CvBridge()
 
         # Set up YOLOv3 model
@@ -128,9 +132,30 @@ class ScrcpyPublisher(Node):
                 
                 # 使用 Darknet 网络对帧进行处理
                 detections = dn.detect_image(network, class_names, frame_resized_image)
-                print("------------11111111-----------------")
-                print(detections)
-                print("------------2222222222-------------------------")
+                #print("------------11111111-----------------")
+                #print(detections)
+                #print("------------2222222222-------------------------")
+
+                for d in detections:
+                    detection = Detection()
+                    detection.class_name = d[0]
+                    detection.confidence = float(d[1])
+                    detection.x = d[2][2]
+                    detection.y = d[2][3]
+                    detection.width = d[2][0]
+                    detection.height = d[2][1]
+
+                    self.detection_publisher_.publish(detection)
+                """
+                ------------11111111-----------------
+                [('person', '82.82', (185.15176391601562, 166.20535278320312, 49.214111328125, 208.76182556152344))]
+                ------------2222222222-------------------------
+
+
+                # Display frame in OpenCV window
+                cv2.imshow("Scrcpy Stream", frame)
+                cv2.waitKey(1)
+                """
 
                 # Convert OpenCV image to ROS 2 image message
                 ros_image = self.bridge.cv2_to_imgmsg(frame, "bgr8")

@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "ROS2: Debug scrcpy_publisher",
+            "name": "scrcpy_publisher",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/install/scrcpy_ros/lib/scrcpy_ros/scrcpy_publisher",
@@ -11,9 +11,28 @@
             "justMyCode": false,
             "env": {
                 "PYTHONUNBUFFERED": "1",
-                "PYTHONPATH": "${env:PYTHONPATH}:${workspaceFolder}/install/scrcpy_ros/lib/python3.10/site-packages"        
+                "PYTHONPATH": "${env:PYTHONPATH}:${workspaceFolder}/install/scrcpy_ros/lib/python3.10/site-packages:${workspaceFolder}/install/lane_msg/lib/python3.10/site-packages"        
             },
             "preLaunchTask": "colcon_build"
+        }, {
+            "name": "detection_subscriber",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/install/scrcpy_ros/lib/scrcpy_ros/detection_subscriber",
+            "args": [],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "PYTHONPATH": "${env:PYTHONPATH}:${workspaceFolder}/install/scrcpy_ros/lib/python3.10/site-packages:${workspaceFolder}/install/lane_msg/lib/python3.10/site-packages"        
+            },
+            "preLaunchTask": "colcon_build"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Multi-node Launch",
+            "configurations": ["scrcpy_publisher", "detection_subscriber"]
         }
     ]
 }
