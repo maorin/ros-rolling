@@ -98,7 +98,7 @@ class ScrcpyPublisher(Node):
         print("-------------%s" % video_device)
     
         # Start scrcpy in the background
-        scrcpy_process = subprocess.Popen(["scrcpy", f"--no-display", f"--v4l2-sink=/dev/video0"])
+        scrcpy_process = subprocess.Popen(["scrcpy", f"-m", f"800", f"--no-display", f"--v4l2-sink=/dev/video0"])
         
 
 
@@ -116,6 +116,11 @@ class ScrcpyPublisher(Node):
         # 获取网络输入的宽度和高度
         darknet_width = dn.network_width(network)
         darknet_height = dn.network_height(network)
+
+        print("----------------")
+        print(darknet_width)
+        print(darknet_height)
+        print("2222222222222222222222")
 
         while rclpy.ok():
             # Capture frame from video device
@@ -140,10 +145,10 @@ class ScrcpyPublisher(Node):
                     detection = Detection()
                     detection.class_name = d[0]
                     detection.confidence = float(d[1])
-                    detection.x = d[2][2]
-                    detection.y = d[2][3]
-                    detection.width = d[2][0]
-                    detection.height = d[2][1]
+                    detection.x = d[2][0]
+                    detection.y = d[2][1]
+                    detection.width = d[2][2]
+                    detection.height = d[2][3]
 
                     self.detection_publisher_.publish(detection)
                 """
