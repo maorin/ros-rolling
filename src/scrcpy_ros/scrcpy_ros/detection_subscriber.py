@@ -16,6 +16,7 @@ class DetectionSubscriber(Node):
 
     def detection_callback(self, msg):
         print(msg.class_name)
+        print(msg.class_name)
         self.get_logger().info('Received detection: %s (%f)' % (msg.class_name, msg.confidence))
 
 def main(args=None):
