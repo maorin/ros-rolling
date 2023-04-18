@@ -1,7 +1,7 @@
 {
     "version": "0.2.0",
     "configurations": [
-        {
+        /*{
             "name": "scrcpy_publisher",
             "type": "python",
             "request": "launch",
@@ -11,10 +11,12 @@
             "justMyCode": false,
             "env": {
                 "PYTHONUNBUFFERED": "1",
+                "LD_LIBRARY_PATH": "${LD_LIBRARY_PATH}:/opt/ros/rolling/lib:${workspaceFolder}/install/lane_msg/lib",
                 "PYTHONPATH": "${env:PYTHONPATH}:${workspaceFolder}/install/scrcpy_ros/lib/python3.10/site-packages:${workspaceFolder}/install/lane_msg/lib/python3.10/site-packages"        
             },
             "preLaunchTask": "colcon_build"
-        }, {
+        },*/
+        {
             "name": "detection_subscriber",
             "type": "python",
             "request": "launch",
@@ -24,15 +26,17 @@
             "justMyCode": false,
             "env": {
                 "PYTHONUNBUFFERED": "1",
+                "LD_LIBRARY_PATH": "${LD_LIBRARY_PATH}:/opt/ros/rolling/lib:${workspaceFolder}/install/lane_msg/lib",
                 "PYTHONPATH": "${env:PYTHONPATH}:${workspaceFolder}/install/scrcpy_ros/lib/python3.10/site-packages:${workspaceFolder}/install/lane_msg/lib/python3.10/site-packages"        
             },
-            "preLaunchTask": "colcon_build"
+            //"preLaunchTask": "colcon_build"
         }
     ],
     "compounds": [
         {
             "name": "Multi-node Launch",
-            "configurations": ["scrcpy_publisher", "detection_subscriber"]
+            //"configurations": ["scrcpy_publisher", "detection_subscriber"]
+            "configurations": ["detection_subscriber"]
         }
     ]
 }

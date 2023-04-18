@@ -1,8 +1,6 @@
 import rclpy
 from rclpy.node import Node
 
-
-
 from lane_msg.msg import Detection
 
 class DetectionSubscriber(Node):

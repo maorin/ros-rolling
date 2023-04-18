@@ -11,7 +11,6 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         ('lib', ['resource/libdarknet.so']),
-        ('share', ['resource/liblane_msg__rosidl_generator_py.so']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
