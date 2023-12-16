@@ -122,49 +122,61 @@ class ScrcpyPublisher(Node):
         print(darknet_height)
         print("2222222222222222222222")
 
+        frame_counter = 0
         while rclpy.ok():
             # Capture frame from video device
             ret, frame = cap.read()
 
             if ret:
-                # 将帧从 BGR 转换为 RGB，然后调整尺寸以适应 Darknet 网络
-                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                frame_resized = cv2.resize(frame_rgb, (darknet_width, darknet_height), interpolation=cv2.INTER_LINEAR)
+                frame_counter += 1
+                if frame_counter % 10 == 0:
+                    # 将帧从 BGR 转换为 RGB，然后调整尺寸以适应 Darknet 网络
+                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    frame_resized = cv2.resize(frame_rgb, (darknet_width, darknet_height), interpolation=cv2.INTER_LINEAR)
+                    # Perform the computations on the resized frame
+                    # ...
                 
-                # 将 frame_resized 转换为 IMAGE 类型
-                frame_resized_image = dn.make_image(frame_resized.shape[1], frame_resized.shape[0], frame_resized.shape[2])
-                dn.copy_image_from_bytes(frame_resized_image, frame_resized.tobytes())
+                    # 将 frame_resized 转换为 IMAGE 类型
+                    frame_resized_image = dn.make_image(frame_resized.shape[1], frame_resized.shape[0], frame_resized.shape[2])
+                    dn.copy_image_from_bytes(frame_resized_image, frame_resized.tobytes())
+                    
+                    # 使用 Darknet 网络对帧进行处理
+                    detections = dn.detect_image(network, class_names, frame_resized_image)
+                    #print("------------11111111-----------------")
+                    #print(detections)
+                    #print("------------2222222222-------------------------")
+
+                    for d in detections:
+                        detection = Detection()
+                        detection.class_name = d[0]
+                        detection.confidence = float(d[1])
+                        detection.x = d[2][0]
+                        detection.y = d[2][1]
+                        detection.width = d[2][2]
+                        detection.height = d[2][3]
+
+                        print(detection)
+
+                        self.detection_publisher_.publish(detection)
+
+                        print("22222222222222222")
+                        
+                        #------------11111111-----------------
+                        #[('person', '82.82', (185.15176391601562, 166.20535278320312, 49.214111328125, 208.76182556152344))]
+                        #------------2222222222-------------------------
+
+
+                    # Display frame in OpenCV window
+                    print("333333333333")
+                    #cv2.imshow("Scrcpy Stream", frame)
+                    print("444444444444444")
+                    #cv2.waitKey(1)
+                    print("5555555555555")
                 
-                # 使用 Darknet 网络对帧进行处理
-                detections = dn.detect_image(network, class_names, frame_resized_image)
-                #print("------------11111111-----------------")
-                #print(detections)
-                #print("------------2222222222-------------------------")
 
-                for d in detections:
-                    detection = Detection()
-                    detection.class_name = d[0]
-                    detection.confidence = float(d[1])
-                    detection.x = d[2][0]
-                    detection.y = d[2][1]
-                    detection.width = d[2][2]
-                    detection.height = d[2][3]
-
-                    self.detection_publisher_.publish(detection)
-                """
-                ------------11111111-----------------
-                [('person', '82.82', (185.15176391601562, 166.20535278320312, 49.214111328125, 208.76182556152344))]
-                ------------2222222222-------------------------
-
-
-                # Display frame in OpenCV window
-                cv2.imshow("Scrcpy Stream", frame)
-                cv2.waitKey(1)
-                """
-
-                # Convert OpenCV image to ROS 2 image message
-                ros_image = self.bridge.cv2_to_imgmsg(frame, "bgr8")
-                self.publisher_.publish(ros_image)
+                    # Convert OpenCV image to ROS 2 image message
+                    ros_image = self.bridge.cv2_to_imgmsg(frame, "bgr8")
+                    self.publisher_.publish(ros_image)
 
             else:
                 print("Error: Unable to read frame.")

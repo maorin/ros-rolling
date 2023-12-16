@@ -42,15 +42,14 @@ class DetectionSubscriber(Node):
         return image_resized, new_width, new_height
 
 
-    def calculate_distance(self, bbox, frame_center):
-        x, y, w, h = bbox
-        bbox_center = (x + w/2, y + h/2)
+    def calculate_distance(self, detection, frame_center):
+        x, y, w, h = detection.x, detection.y, detection.width, detection.height
+        bbox_center = (x + w / 2, y + h / 2)
         return np.linalg.norm(np.array(frame_center) - np.array(bbox_center))
-
 
     def sort_detections(self, detections, frame_shape):
         frame_center = (frame_shape[1] / 2, frame_shape[0] / 2)
-        sorted_detections = sorted(detections, key=lambda det: (self.calculate_distance(det, frame_center), -det[2] * det[3]))
+        sorted_detections = sorted(detections, key=lambda det: (self.calculate_distance(det, frame_center), -det.width * det.height))
         return sorted_detections
 
     def video_callback(self, img_msg):
@@ -70,13 +69,14 @@ class DetectionSubscriber(Node):
         sorted_detections = self.sort_detections(self.current_detections, frame_shape)
 
 
+
         if not sorted_detections:
             return
 
 
 
-        #for detection in self.current_detections[0]:
-        for detection in sorted_detections[0]:
+        # 处理排序后的检测结果
+        for detection in sorted_detections:
             # Draw the detection on the frame
             x, y, w, h = int(detection.x * width_ratio), int(detection.y * height_ratio), int(detection.width * width_ratio), int(detection.height * height_ratio)
             left = int(x - w / 2)
@@ -84,10 +84,10 @@ class DetectionSubscriber(Node):
             right = int(x + w / 2)
             bottom = int(y + h / 2)
 
-
             cv2.rectangle(cv_image_resized, (left, top), (right, bottom), (0, 255, 0), 2)
             cv2.putText(cv_image_resized, detection.class_name, (left, top - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
             self.get_logger().info(f"Drawing detection: {detection.class_name} ({detection.confidence})")
+
 
         self.current_detections.clear()
         
