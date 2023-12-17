@@ -155,6 +155,7 @@ class ScrcpyPublisher(Node):
                         detection.y = d[2][1]
                         detection.width = d[2][2]
                         detection.height = d[2][3]
+                        
                         if detection.class_name == "person" and detection.confidence > 0.8: # 设置置信度阈值
                             print(detection)
 

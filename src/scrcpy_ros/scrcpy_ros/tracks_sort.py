@@ -30,6 +30,8 @@ class TracksSort(Node):
         self.trackers = {}  # 存储目标和对应的跟踪器
         self.next_id = 0    # 用于生成下一个唯一 ID
 
+        self.trackers_index = {}
+
         x, y, w, h = 100, 100, 50, 50  # 假设的初始边界框
         empty_image = np.zeros((480, 640, 3), dtype=np.uint8)
 
@@ -74,7 +76,6 @@ class TracksSort(Node):
     def video_callback(self, img_msg):
         try:
             cv_image = self.bridge.imgmsg_to_cv2(img_msg, 'bgr8')
-
             cv_image_resized, new_width, new_height = self.resize_image_with_aspect_ratio(cv_image, 800)
         except Exception as e:
             self.get_logger().error('Failed to convert image: %s' % str(e))
@@ -86,8 +87,6 @@ class TracksSort(Node):
         height_ratio = float(new_height) / 416
 
         frame_shape = (new_height, new_width, 3)
-
-        height, width, channels = frame_shape
         frame = cv_image_resized
 
         class_ids = []
@@ -97,8 +96,6 @@ class TracksSort(Node):
             class_id = detection.class_name
             confidence = detection.confidence
             if confidence > 0.5:  # 设置置信度阈值
-                center_x = int(detection.x + width / 2) * width_ratio
-                center_y = int(detection.y * height / 2) * height_ratio
                 x = int(detection.x * width_ratio)  # 将 x 坐标调整到缩放后的图像尺寸
                 y = int(detection.y * height_ratio) # 将 y 坐标调整到缩放后的图像尺寸
                 w = int(detection.width * width_ratio)  # 将宽度调整到缩放后的图像尺寸
@@ -111,43 +108,65 @@ class TracksSort(Node):
         # 应用非极大值抑制
         indices = cv2.dnn.NMSBoxes(boxes, confidences, 0.5, 0.4)
 
-        #print(indices)
         detections = []
         for i in indices:
             box = boxes[i]
             detections.append([box[0], box[1], box[0]+box[2], box[1]+box[3], confidences[i]])
 
-        for det in detections:
+
+        for i, det in enumerate(detections):
             matched, tracker_id = self.match_detection_with_trackers(det)
             if matched:
-                # 更新现有跟踪器
                 self.trackers[tracker_id].update(det)
                 updated_trackers[tracker_id] = self.trackers[tracker_id]
+                self.trackers_index[tracker_id] = i  # 更新跟踪器索引
             else:
-                # 为新目标创建跟踪器并分配 ID
                 new_tracker_id = self.next_id
                 self.next_id += 1
                 new_tracker = Tracker(new_tracker_id, det)
                 updated_trackers[new_tracker_id] = new_tracker
+                self.trackers_index[new_tracker_id] = i  # 添加新跟踪器索引
+
 
         # 更新跟踪器列表
         self.trackers = updated_trackers
-
-        for tracker_id, tracker in self.trackers.items():
+        
+        for tracker_id, i in self.trackers_index.items():
             # 提取跟踪器的边界框信息
-            bbox = tracker.bbox
-            x, y, w, h = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
+            detection = self.current_detections[i]
+            x, y, w, h = int(detection.x * width_ratio), int(detection.y * height_ratio), int(detection.width * width_ratio), int(detection.height * height_ratio)
+            left = int(x - w / 2)
+            top = int(y - h / 2)
+            right = int(x + w / 2)
+            bottom = int(y + h / 2)
 
-            # 绘制边界框和跟踪器 ID
-            cv2.rectangle(cv_image_resized, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            cv2.putText(cv_image_resized, str(tracker_id), (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            cv2.rectangle(cv_image_resized, (left, top), (right, bottom), (0, 255, 0), 2)
+            cv2.putText(cv_image_resized, detection.class_name, (left, top - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            self.get_logger().info(f"Drawing detection: {detection.class_name} ({detection.confidence})")      
 
+        """
+        
+        # 处理排序后的检测结果
+        for detection in self.current_detections:
+            # Draw the detection on the frame
+            x, y, w, h = int(detection.x * width_ratio), int(detection.y * height_ratio), int(detection.width * width_ratio), int(detection.height * height_ratio)
+            left = int(x - w / 2)
+            top = int(y - h / 2)
+            right = int(x + w / 2)
+            bottom = int(y + h / 2)
 
-        print(self.trackers)
+            cv2.rectangle(cv_image_resized, (left, top), (right, bottom), (0, 255, 0), 2)
+            cv2.putText(cv_image_resized, detection.class_name, (left, top - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            self.get_logger().info(f"Drawing detection: {detection.class_name} ({detection.confidence})")        
+        """
 
+        self.current_detections.clear()
+        self.trackers_index.clear()
+        
         cv2.imshow('Tracking', cv_image_resized)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             cv2.destroyAllWindows()
+
 
     def match_detection_with_trackers(self, detection):
         max_iou = 0
