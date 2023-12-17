@@ -37,6 +37,7 @@ setup(
             'scrcpy_publisher = scrcpy_ros.scrcpy_publisher:main',
             'detection_subscriber = scrcpy_ros.detection_subscriber:main',
             'tracks_sort = scrcpy_ros.tracks_sort:main',
+            'auto_aim = scrcpy_ros.auto_aim:main',
         ],
     },
 )
