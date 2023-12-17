@@ -50,6 +50,8 @@ class TracksSort(Node):
             10
         )
 
+        self.largest_target_publisher = self.create_publisher(Detection, 'largest_target', 10)
+
 
     def detection_callback(self, msg):
         self.current_detections.append(msg)
@@ -111,7 +113,7 @@ class TracksSort(Node):
         detections = []
         for i in indices:
             box = boxes[i]
-            detections.append([box[0], box[1], box[0]+box[2], box[1]+box[3], confidences[i]])
+            detections.append([box[0], box[1], box[2], box[3], confidences[i]])
 
 
         for i, det in enumerate(detections):
@@ -127,38 +129,52 @@ class TracksSort(Node):
                 updated_trackers[new_tracker_id] = new_tracker
                 self.trackers_index[new_tracker_id] = i  # 添加新跟踪器索引
 
-
+        largest_area = 0
+        largest_target = None
         # 更新跟踪器列表
         self.trackers = updated_trackers
-        
-        for tracker_id, i in self.trackers_index.items():
+        for tracker_id, tracker in self.trackers.items():
             # 提取跟踪器的边界框信息
-            detection = self.current_detections[i]
-            x, y, w, h = int(detection.x * width_ratio), int(detection.y * height_ratio), int(detection.width * width_ratio), int(detection.height * height_ratio)
+            bbox = tracker.bbox
+            x, y, w, h = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
             left = int(x - w / 2)
             top = int(y - h / 2)
             right = int(x + w / 2)
             bottom = int(y + h / 2)
 
-            cv2.rectangle(cv_image_resized, (left, top), (right, bottom), (0, 255, 0), 2)
-            cv2.putText(cv_image_resized, detection.class_name, (left, top - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-            self.get_logger().info(f"Drawing detection: {detection.class_name} ({detection.confidence})")      
+            #计算边界框的面积
+            area = bbox[2] * bbox[3]  # 宽度 x 高度
+            if area > largest_area:
+                largest_area = area
+                #largest_target = tracker_id
+                largest_target = tracker
 
-        """
-        
-        # 处理排序后的检测结果
-        for detection in self.current_detections:
-            # Draw the detection on the frame
-            x, y, w, h = int(detection.x * width_ratio), int(detection.y * height_ratio), int(detection.width * width_ratio), int(detection.height * height_ratio)
+
+        # 发布最大目标的信息
+        if largest_target is not None:
+            detection_msg = Detection()
+            detection_msg.class_name = "largest_target"  # 或者设置为实际类名
+            detection_msg.x = float(largest_target.bbox[0])  # 确保转换为 float
+            detection_msg.y = float(largest_target.bbox[1])  # 确保转换为 float
+            detection_msg.width = float(largest_target.bbox[2])  # 确保转换为 float
+            detection_msg.height = float(largest_target.bbox[3])  # 确保转换为 float
+            detection_msg.confidence = 1.0  # 已经是 float
+            detection_msg.confidence = 1.0  # 或者设置为实际置信度
+            print(detection_msg)
+            self.largest_target_publisher.publish(detection_msg)
+
+            bbox = largest_target.bbox
+            x, y, w, h = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
             left = int(x - w / 2)
             top = int(y - h / 2)
             right = int(x + w / 2)
-            bottom = int(y + h / 2)
+            bottom = int(y + h / 2)            
 
             cv2.rectangle(cv_image_resized, (left, top), (right, bottom), (0, 255, 0), 2)
-            cv2.putText(cv_image_resized, detection.class_name, (left, top - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-            self.get_logger().info(f"Drawing detection: {detection.class_name} ({detection.confidence})")        
-        """
+            cv2.putText(cv_image_resized, detection_msg.class_name, (left, top - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            self.get_logger().info(f"Drawing detection: {detection_msg.class_name} ({detection_msg.class_name})")    
+
+
 
         self.current_detections.clear()
         self.trackers_index.clear()
