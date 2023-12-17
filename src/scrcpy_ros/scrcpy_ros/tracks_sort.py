@@ -6,14 +6,33 @@ from lane_msg.msg import Detection
 import cv2
 import numpy as np
 
+class Tracker:
+    def __init__(self, tracker_id, bbox):
+        self.id = tracker_id
+        self.bbox = bbox  # 边界框格式: [x, y, w, h]
+        self.lost = 0     # 跟踪丢失的帧数
+
+    def update(self, new_bbox):
+        self.bbox = new_bbox
+        self.lost = 0  # 成功更新后重置丢失计数
+
+    def increment_lost(self):
+        self.lost += 1
+
+
 class TracksSort(Node):
     def __init__(self):
         super().__init__('tracks_sort')
 
         self.bridge = CvBridge()
         self.current_detections = []
+
+        self.trackers = {}  # 存储目标和对应的跟踪器
+        self.next_id = 0    # 用于生成下一个唯一 ID
+
         x, y, w, h = 100, 100, 50, 50  # 假设的初始边界框
         empty_image = np.zeros((480, 640, 3), dtype=np.uint8)
+
         
         self.subscription = self.create_subscription(
             Detection,
@@ -61,39 +80,115 @@ class TracksSort(Node):
             self.get_logger().error('Failed to convert image: %s' % str(e))
             return
 
+        updated_trackers = {}
+
         width_ratio = float(new_width) / 416
         height_ratio = float(new_height) / 416
 
         frame_shape = (new_height, new_width, 3)
 
-        sorted_detections = self.sort_detections(self.current_detections, frame_shape)
+        height, width, channels = frame_shape
+        frame = cv_image_resized
+
+        class_ids = []
+        confidences = []
+        boxes = []
+        for detection in self.current_detections:
+            class_id = detection.class_name
+            confidence = detection.confidence
+            if confidence > 0.5:  # 设置置信度阈值
+                center_x = int(detection.x + width / 2) * width_ratio
+                center_y = int(detection.y * height / 2) * height_ratio
+                x = int(detection.x * width_ratio)  # 将 x 坐标调整到缩放后的图像尺寸
+                y = int(detection.y * height_ratio) # 将 y 坐标调整到缩放后的图像尺寸
+                w = int(detection.width * width_ratio)  # 将宽度调整到缩放后的图像尺寸
+                h = int(detection.height * height_ratio) # 将高度调整到缩放后的图像尺寸
+
+                boxes.append([x, y, w, h])
+                confidences.append(float(confidence))
+                class_ids.append(class_id)
+
+        # 应用非极大值抑制
+        indices = cv2.dnn.NMSBoxes(boxes, confidences, 0.5, 0.4)
+
+        #print(indices)
+        detections = []
+        for i in indices:
+            box = boxes[i]
+            detections.append([box[0], box[1], box[0]+box[2], box[1]+box[3], confidences[i]])
+
+        for det in detections:
+            matched, tracker_id = self.match_detection_with_trackers(det)
+            if matched:
+                # 更新现有跟踪器
+                self.trackers[tracker_id].update(det)
+                updated_trackers[tracker_id] = self.trackers[tracker_id]
+            else:
+                # 为新目标创建跟踪器并分配 ID
+                new_tracker_id = self.next_id
+                self.next_id += 1
+                new_tracker = Tracker(new_tracker_id, det)
+                updated_trackers[new_tracker_id] = new_tracker
+
+        # 更新跟踪器列表
+        self.trackers = updated_trackers
+
+        for tracker_id, tracker in self.trackers.items():
+            # 提取跟踪器的边界框信息
+            bbox = tracker.bbox
+            x, y, w, h = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
+
+            # 绘制边界框和跟踪器 ID
+            cv2.rectangle(cv_image_resized, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            cv2.putText(cv_image_resized, str(tracker_id), (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
 
+        print(self.trackers)
 
-        if not sorted_detections:
-            return
+        cv2.imshow('Tracking', cv_image_resized)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            cv2.destroyAllWindows()
 
+    def match_detection_with_trackers(self, detection):
+        max_iou = 0
+        best_tracker_id = None
+        for tracker_id, tracker in self.trackers.items():
+            iou = self.calculate_iou(tracker.bbox, detection)
+            if iou > max_iou:
+                max_iou = iou
+                best_tracker_id = tracker_id
 
+        iou_threshold = 0.3  # 可调整的 IoU 阈值
+        if max_iou > iou_threshold:
+            return True, best_tracker_id
+        else:
+            return False, None
 
-        # 处理排序后的检测结果
-        for detection in sorted_detections:
-            # Draw the detection on the frame
-            x, y, w, h = int(detection.x * width_ratio), int(detection.y * height_ratio), int(detection.width * width_ratio), int(detection.height * height_ratio)
-            left = int(x - w / 2)
-            top = int(y - h / 2)
-            right = int(x + w / 2)
-            bottom = int(y + h / 2)
+    def calculate_iou(self, box1, box2):
+        # 计算边界框的 (x, y) 坐标
+        x1_min, y1_min, x1_max, y1_max = box1[0], box1[1], box1[0] + box1[2], box1[1] + box1[3]
+        x2_min, y2_min, x2_max, y2_max = box2[0], box2[1], box2[0] + box2[2], box2[1] + box2[3]
 
-            cv2.rectangle(cv_image_resized, (left, top), (right, bottom), (0, 255, 0), 2)
-            cv2.putText(cv_image_resized, detection.class_name, (left, top - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-            self.get_logger().info(f"Drawing detection: {detection.class_name} ({detection.confidence})")
+        # 计算两个边界框的交集区域
+        intersect_x_min = max(x1_min, x2_min)
+        intersect_y_min = max(y1_min, y2_min)
+        intersect_x_max = min(x1_max, x2_max)
+        intersect_y_max = min(y1_max, y2_max)
 
+        # 计算交集区域的面积
+        intersect_area = max(intersect_x_max - intersect_x_min, 0) * max(intersect_y_max - intersect_y_min, 0)
 
-        self.current_detections.clear()
-        
-        cv2.imshow('Video Stream with Detections', cv_image_resized)
-        cv2.waitKey(1)
+        # 计算每个边界框的面积
+        box1_area = (x1_max - x1_min) * (y1_max - y1_min)
+        box2_area = (x2_max - x2_min) * (y2_max - y2_min)
 
+        # 计算并集区域的面积
+        union_area = box1_area + box2_area - intersect_area
+
+        # 计算 IoU
+        iou = intersect_area / union_area if union_area != 0 else 0
+
+        return iou
 
 def main(args=None):
     rclpy.init(args=args)
