@@ -36,6 +36,7 @@ setup(
         'console_scripts': [
             'scrcpy_publisher = scrcpy_ros.scrcpy_publisher:main',
             'detection_subscriber = scrcpy_ros.detection_subscriber:main',
+            'tracks_sort = scrcpy_ros.tracks_sort:main',
         ],
     },
 )

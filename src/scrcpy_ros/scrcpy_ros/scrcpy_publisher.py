@@ -98,7 +98,8 @@ class ScrcpyPublisher(Node):
         print("-------------%s" % video_device)
     
         # Start scrcpy in the background
-        scrcpy_process = subprocess.Popen(["scrcpy", f"-m", f"800", f"--no-display", f"--v4l2-sink=/dev/video0"])
+        #scrcpy_process = subprocess.Popen(["scrcpy", f"-m", f"800", f"--no-display", f"--v4l2-sink=/dev/video0"])
+        scrcpy_process = subprocess.Popen(["scrcpy", f"-m", f"800", f"--v4l2-sink=/dev/video0"])
         
 
 
@@ -154,29 +155,19 @@ class ScrcpyPublisher(Node):
                         detection.y = d[2][1]
                         detection.width = d[2][2]
                         detection.height = d[2][3]
+                        if detection.class_name == "person" and detection.confidence > 0.8: # 设置置信度阈值
+                            print(detection)
 
-                        print(detection)
-
-                        self.detection_publisher_.publish(detection)
-
-                        print("22222222222222222")
-                        
-                        #------------11111111-----------------
-                        #[('person', '82.82', (185.15176391601562, 166.20535278320312, 49.214111328125, 208.76182556152344))]
-                        #------------2222222222-------------------------
+                            self.detection_publisher_.publish(detection)
+                            # Convert OpenCV image to ROS 2 image message
+                            ros_image = self.bridge.cv2_to_imgmsg(frame, "bgr8")
+                            self.publisher_.publish(ros_image)
 
 
-                    # Display frame in OpenCV window
-                    print("333333333333")
-                    #cv2.imshow("Scrcpy Stream", frame)
-                    print("444444444444444")
-                    #cv2.waitKey(1)
-                    print("5555555555555")
                 
 
-                    # Convert OpenCV image to ROS 2 image message
-                    ros_image = self.bridge.cv2_to_imgmsg(frame, "bgr8")
-                    self.publisher_.publish(ros_image)
+                    
+     
 
             else:
                 print("Error: Unable to read frame.")
