@@ -12,6 +12,8 @@ class AutoAim(Node):
 
         self.bridge = CvBridge()
         self.current_detections = []
+        self.target_position = None
+
         x, y, w, h = 100, 100, 50, 50  # 假设的初始边界框
         empty_image = np.zeros((480, 640, 3), dtype=np.uint8)
         
@@ -31,8 +33,11 @@ class AutoAim(Node):
 
 
     def largest_target_detection_callback(self, msg):
-        self.current_detections.append(msg)
+        self.current_detections = [msg]
         self.get_logger().info('Received largest_target: %s (%f)' % (msg.class_name, msg.confidence))
+
+
+
         #在这里添加自瞄代码
 
 
@@ -62,26 +67,36 @@ class AutoAim(Node):
         
 
         #在这里检测目标是不是在视野中
+        if self.current_detections:
+            detection = self.current_detections[0]
 
-
-        # 处理排序后的检测结果
-        for detection in self.current_detections:
-            # Draw the detection on the frame
-            x, y, w, h = int(detection.x * width_ratio), int(detection.y * height_ratio), int(detection.width * width_ratio), int(detection.height * height_ratio)
+            x, y, w, h = int(detection.x), int(detection.y), int(detection.width), int(detection.height)
             left = int(x - w / 2)
             top = int(y - h / 2)
             right = int(x + w / 2)
             bottom = int(y + h / 2)
+            center_x = x + w / 2
+            center_y = y + h / 2
+            print("center_x:",center_x)
+            print("center_y:",center_y)
+
+            target_x = center_x * 2340 / 800
+            target_y = center_y * 1080 / 416
+
+            print("target_x:",target_x)
+            print("target_y:",target_y)
+            # 在这里添加自瞄代码
+
 
             cv2.rectangle(cv_image_resized, (left, top), (right, bottom), (0, 255, 0), 2)
             cv2.putText(cv_image_resized, detection.class_name, (left, top - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
             self.get_logger().info(f"Drawing detection: {detection.class_name} ({detection.confidence})")
 
 
-        self.current_detections.clear()
-        
-        cv2.imshow('Video Stream with Detections', cv_image_resized)
-        cv2.waitKey(1)
+            self.current_detections.clear()
+            
+            cv2.imshow('Video Stream with Detections', cv_image_resized)
+            cv2.waitKey(1)
 
 
 def main(args=None):

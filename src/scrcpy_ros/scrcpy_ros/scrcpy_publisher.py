@@ -98,8 +98,8 @@ class ScrcpyPublisher(Node):
         print("-------------%s" % video_device)
     
         # Start scrcpy in the background
-        #scrcpy_process = subprocess.Popen(["scrcpy", f"-m", f"800", f"--no-display", f"--v4l2-sink=/dev/video0"])
-        scrcpy_process = subprocess.Popen(["scrcpy", f"-m", f"800", f"--v4l2-sink=/dev/video0"])
+        scrcpy_process = subprocess.Popen(["scrcpy", f"-m", f"800", f"--no-display", f"--v4l2-sink=/dev/video0"])
+        #scrcpy_process = subprocess.Popen(["scrcpy", f"-m", f"800", f"--v4l2-sink=/dev/video0"])
         
 
 
