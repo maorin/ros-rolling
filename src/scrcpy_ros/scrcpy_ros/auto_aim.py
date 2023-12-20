@@ -59,7 +59,7 @@ class AutoAim(Node):
         for _ in range(steps):
             next_x = current_x + step_x
             next_y = current_y + step_y
-            commands.append((current_x, current_y, next_x, next_y, 10))
+            commands.append((current_x, current_y, next_x, next_y, 200))
             current_x, current_y = next_x, next_y
 
         return commands
@@ -126,47 +126,62 @@ class AutoAim(Node):
             top = int(y - h / 2)
             right = int(x + w / 2)
             bottom = int(y + h / 2)
-            center_x = x + w / 2
-            center_y = y + h / 2
+            center_x = left + (w / 2)
+            center_y = top + (h / 2)
 
             print("center_x:",center_x)
             print("center_y:",center_y)
 
+
+            # 缩小后的屏幕中心点
+            small_screen_center_x = 800 / 2
+            small_screen_center_y = 416 / 2
+            
+
             # 判断准心在不在目标内
-            if self.is_point_inside_rectangle(left, top, right, bottom, center_x, center_y):
+            if not self.is_point_inside_rectangle(left, top, right, bottom, small_screen_center_x, small_screen_center_y):
                 self.get_logger().info('Target is inside the screen')
                 
-                return
-            
+                # 目标在屏幕中的坐标
+                target_x = center_x * 2340 / 800
+                target_y = center_y * 1080 / 416
 
-            # 目标在屏幕中的坐标
-            target_x = center_x * 2340 / 800
-            target_y = center_y * 1080 / 416
-
-            print("target_x:",target_x)
-            print("target_y:",target_y)
-
-            # 屏幕中心点
-            screen_center_x = 2340 / 2
-            screen_center_y = 1080 / 2
-
-            print("screen_center_x:",screen_center_x)
-            print("screen_center_y:",screen_center_y)
-
-            # 按住屏幕的初始坐标
-            hold_init_x =  2340 / 2 + 500
-            hold_init_y =  1080 / 2
-            
-            print("hold_init_x:",hold_init_x)
-            print("hold_init_y:",hold_init_y)
-
-            # 生成滑动命令
-            displacement_x, displacement_y = self.calculate_displacement(screen_center_x, screen_center_y, target_x, target_y)
-
-            self.adb_commands = self.generate_adb_commands(screen_center_x, screen_center_y, displacement_x, displacement_y, steps=10)
+                # 屏幕中心点
+                screen_center_x = 2340 / 2
+                screen_center_y = 1080 / 2
 
 
+                # 按住屏幕的初始坐标
+                hold_init_x =  2340 / 2 + 800
+                hold_init_y =  1080 / 2
+                
+                print("hold_init_x:",hold_init_x)
+                print("hold_init_y:",hold_init_y)
 
+                # 生成滑动命令
+                displacement_x, displacement_y = self.calculate_displacement(small_screen_center_x, small_screen_center_y, center_x, center_y)
+
+                self.adb_commands = self.generate_adb_commands(screen_center_x, screen_center_y, displacement_x, displacement_y, steps=1)
+
+                # 从屏幕中心到目标点的线    
+                # 将浮点坐标转换为整数
+                small_screen_center_x = int(small_screen_center_x)
+                small_screen_center_y = int(small_screen_center_y)
+                center_x = int(center_x)
+                center_y = int(center_y)  
+                print("small_screen_center_x:",small_screen_center_x)
+                print("small_screen_center_y:",small_screen_center_y)
+                print("center_x:",center_x)
+                print("center_y:",center_y)
+                            
+                cv2.line(cv_image_resized, (small_screen_center_x, small_screen_center_y), (center_x, center_y), (255, 0, 0), 2)
+
+            else:
+                self.get_logger().info('Target is outside the screen')
+                self.adb_commands = []  # 清空命令
+
+
+            # 从屏幕中心到目标点的线
             cv2.rectangle(cv_image_resized, (left, top), (right, bottom), (0, 255, 0), 2)
             cv2.putText(cv_image_resized, detection.class_name, (left, top - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
             self.get_logger().info(f"Drawing detection: {detection.class_name} ({detection.confidence})")
