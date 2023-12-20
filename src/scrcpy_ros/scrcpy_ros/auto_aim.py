@@ -76,10 +76,59 @@ class AutoAim(Node):
             return False
     
 
+    def generate_adb_swipe_command(self, start_x, start_y, end_x, end_y, swipe_percentage):
+        """
+        生成ADB滑动命令。
+
+        :param start_x: 滑动起始点的x坐标。
+        :param start_y: 滑动起始点的y坐标。
+        :param end_x: 滑动终点的x坐标。
+        :param end_y: 滑动终点的y坐标。
+        :param swipe_percentage: 滑动距离占线段总长度的百分比。
+        :return: ADB滑动命令的字符串。
+        """
+        duration = 200  # 滑动持续时间
+        # 计算方向向量
+        direction_x = end_x - start_x
+        direction_y = end_y - start_y
+
+        # 计算百分比处的点
+        length_percentage_x = direction_x * swipe_percentage
+        length_percentage_y = direction_y * swipe_percentage
+
+        # 计算百分比处的坐标
+        percentage_point_x = start_x + length_percentage_x
+        percentage_point_y = start_y + length_percentage_y
+
+        # 生成ADB滑动命令
+        adb_start_x = int(start_x)
+        adb_start_y = int(start_y)
+        adb_end_x = int(percentage_point_x)
+        adb_end_y = int(percentage_point_y)
+
+        # 原始分辨率和目标分辨率
+        original_resolution_x, original_resolution_y = 800, 416
+        target_resolution_x, target_resolution_y = 2340, 1080
+
+        # 计算宽度和高度的比例
+        x_ratio = target_resolution_x / original_resolution_x
+        y_ratio = target_resolution_y / original_resolution_y
+
+        # 应用比例到原始坐标
+        adb_start_x = int(adb_start_x * x_ratio)
+        adb_start_y = int(adb_start_y * y_ratio)
+        adb_end_x = int(adb_end_x * x_ratio)
+        adb_end_y = int(adb_end_y * y_ratio)
+
+        return [(adb_start_x, adb_start_y, adb_end_x, adb_end_y, duration)]
+
+
+
+
     def largest_target_detection_callback(self, msg):
         self.current_detections = [msg]
         self.get_logger().info('Received largest_target: %s (%f)' % (msg.class_name, msg.confidence))
-
+    
         if self.command_thread:
             self.command_thread.join()
 
@@ -152,16 +201,20 @@ class AutoAim(Node):
 
 
                 # 按住屏幕的初始坐标
-                hold_init_x =  2340 / 2 + 800
+                hold_init_x =  (2340 / 2) + 500
                 hold_init_y =  1080 / 2
+
+                small_hold_init_x = hold_init_x * (800 / 2340)
+                small_hold_init_y = hold_init_y * (416 / 1080)
+
                 
                 print("hold_init_x:",hold_init_x)
                 print("hold_init_y:",hold_init_y)
 
                 # 生成滑动命令
-                displacement_x, displacement_y = self.calculate_displacement(small_screen_center_x, small_screen_center_y, center_x, center_y)
+                #displacement_x, displacement_y = self.calculate_displacement(small_screen_center_x, small_screen_center_y, center_x, center_y)
 
-                self.adb_commands = self.generate_adb_commands(screen_center_x, screen_center_y, displacement_x, displacement_y, steps=1)
+                #self.adb_commands = self.generate_adb_commands(screen_center_x, screen_center_y, displacement_x, displacement_y, steps=1)
 
                 # 从屏幕中心到目标点的线    
                 # 将浮点坐标转换为整数
@@ -175,7 +228,44 @@ class AutoAim(Node):
                 print("center_y:",center_y)
                             
                 cv2.line(cv_image_resized, (small_screen_center_x, small_screen_center_y), (center_x, center_y), (255, 0, 0), 2)
+                
+                x_ratio =  800 / 2340
+                y_ratio =  416 / 1080
 
+
+                # 原始线段的起点和终点
+                original_start_x, original_start_y = small_screen_center_x, small_screen_center_y
+                original_end_x, original_end_y = center_x, center_y
+
+                # 计算原始线段的方向向量
+                direction_x = original_end_x - original_start_x
+                direction_y = original_end_y - original_start_y
+
+                # 新线段的起点
+                new_start_x = int(small_hold_init_x)
+                new_start_y = int(small_hold_init_y)
+
+                # 计算新线段的终点
+                new_end_x = int(new_start_x + direction_x)
+                new_end_y = int(new_start_y + direction_y)
+
+                # 画出新线段
+                cv2.line(cv_image_resized, (new_start_x, new_start_y), (new_end_x, new_end_y), (255, 0, 0), 2)
+
+                swipe_percentage = 0.1 # 滑动距离占线段总长度的百分比
+
+                adb_command = self.generate_adb_swipe_command(new_start_x, new_start_y, new_end_x, new_end_y, swipe_percentage)
+
+                #self.adb_commands.append(adb_command)
+                self.adb_commands = adb_command
+
+
+                """
+                # 画出ADB命令模拟的滑动线
+                for command in self.adb_commands:
+                    start_x, start_y, end_x, end_y, _ = command
+                    cv2.line(cv_image_resized, (int(start_x * x_ratio), int(start_y * y_ratio)), (int(end_x * x_ratio), int(end_y * y_ratio)), (33, 24, 255), 2)
+                """
             else:
                 self.get_logger().info('Target is outside the screen')
                 self.adb_commands = []  # 清空命令
