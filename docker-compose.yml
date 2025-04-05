@@ -1,14 +1,18 @@
 version: '3.8'
 
 services:
-  talker:
+  ros_dev:
     build: .
-    container_name: ros2_talker
+    container_name: ros_rolling_dev
+    platform: linux/arm64  # 为M3芯片指定ARM平台
     tty: true
-    command: ["bash", "-c", "source /ros2_ws/install/setup.bash && ros2 run demo_nodes_cpp talker"]
-
-  listener:
-    build: .
-    container_name: ros2_listener
-    tty: true
-    command: ["bash", "-c", "source /ros2_ws/install/setup.bash && ros2 run demo_nodes_py listener"]
+    stdin_open: true
+    network_mode: "host"
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+    volumes:
+      - ./src:/ros_ws/src  # 挂载源代码目录，方便在主机上编辑
+      - /tmp/.X11-unix:/tmp/.X11-unix  # X11显示支持（如需GUI）
+    working_dir: /ros_ws
+    command: bash

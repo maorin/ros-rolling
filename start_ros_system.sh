@@ -1,21 +1,20 @@
 #!/bin/bash
 
-# 终止脚本，如果任何命令返回非零状态
-set -e
+# 确保脚本可执行
+chmod +x build.sh
 
-# 构建ROS工作空间
-colcon build
+# 如果容器不存在，先构建容器
+if [ ! "$(docker ps -a | grep ros_rolling_dev)" ]; then
+  echo "构建Docker容器..."
+  ./build.sh
+fi
 
-# 设置环境变量
-#source install/setup.bash
-. install/setup.bash
+# 如果容器没有运行，启动容器
+if [ ! "$(docker ps -q -f name=ros_rolling_dev)" ]; then
+  echo "启动Docker容器..."
+  docker-compose up -d
+fi
 
-# 启动scrcpy_ros的scrcpy_publisher节点
-nohup ros2 run scrcpy_ros scrcpy_publisher &
-
-# 启动scrcpy_ros的tracks_sort节点
-nohup ros2 run scrcpy_ros tracks_sort &
-
-# 可以在这里添加更多的ROS节点或其他命令
-
-echo "ROS系统启动完成。"
+# 进入容器的交互式bash终端
+echo "进入ROS开发环境..."
+docker exec -it ros_rolling_dev bash
