@@ -11,8 +11,12 @@ services:
     environment:
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
+      - VIRTUAL_ENV=/opt/venv
+      - PATH=/opt/venv/bin:$PATH
+      - PYTHONPATH=/opt/venv/lib/python3.12/site-packages:/ros_ws/install/lib/python3.12/site-packages
     volumes:
       - ./src:/ros_ws/src  # 挂载源代码目录，方便在主机上编辑
       - /tmp/.X11-unix:/tmp/.X11-unix  # X11显示支持（如需GUI）
+      - ~/.config/Ultralytics:/root/.config/Ultralytics  # 共享YOLO模型缓存
     working_dir: /ros_ws
     command: bash
