@@ -1,7 +1,7 @@
 FROM ros:rolling
 
 # Set up the ROS 2 environment
-ENV ROS_WS /ros_ws
+ENV ROS_WS=/ros_ws
 
 COPY src/ $ROS_WS/src/
 
@@ -25,6 +25,16 @@ RUN apt-get update && apt-get install -y \
     v4l2loopback-dkms \
     v4l2loopback-utils \
     scrcpy \
+    # VNC and NoVNC dependencies
+    tigervnc-standalone-server \
+    tigervnc-xorg-extension \
+    novnc \
+    openbox \
+    xterm \
+    lxpanel \
+    pcmanfm \
+    x11-xserver-utils \
+    xfonts-base \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR $ROS_WS
@@ -71,7 +81,7 @@ RUN . /opt/ros/rolling/setup.sh && \
     colcon build --symlink-install || echo "ROS构建部分失败，但将继续"
 
 # Set environment variables
-ENV PYTHONPATH=$PYTHONPATH:$VIRTUAL_ENV/lib/python3.12/site-packages:$ROS_WS/install/lib/python3.12/site-packages
+ENV PYTHONPATH="$VIRTUAL_ENV/lib/python3.12/site-packages:$ROS_WS/install/lib/python3.12/site-packages"
 
 # Automatically load ROS and virtual environment on container start
 RUN echo "source /opt/ros/rolling/setup.bash" >> ~/.bashrc && \
@@ -79,7 +89,22 @@ RUN echo "source /opt/ros/rolling/setup.bash" >> ~/.bashrc && \
     echo "source $VIRTUAL_ENV/bin/activate" >> ~/.bashrc && \
     echo "export PYTHONPATH=\$PYTHONPATH:$VIRTUAL_ENV/lib/python3.12/site-packages:$ROS_WS/install/lib/python3.12/site-packages" >> ~/.bashrc
 
+# Setup VNC password and configuration
+RUN mkdir -p /root/.vnc
+RUN echo "ros" | vncpasswd -f > /root/.vnc/passwd && chmod 600 /root/.vnc/passwd
+RUN mkdir -p /root/.config/openbox
+RUN echo '#!/bin/bash\nlxpanel &\npcmanfm --desktop &' > /root/.config/openbox/autostart && chmod +x /root/.config/openbox/autostart
+
+# Create VNC startup script
+RUN echo '#!/bin/bash\nVNC_DISPLAY=1\nNOVNC_PORT=6080\nVNC_PORT=590${VNC_DISPLAY}\nvncserver :${VNC_DISPLAY} -geometry 1280x720 -depth 24 -localhost no\n/usr/share/novnc/utils/novnc_proxy --vnc localhost:${VNC_PORT} --listen ${NOVNC_PORT}' > /start_vnc.sh && chmod +x /start_vnc.sh
+
 WORKDIR $ROS_WS
 
-# Keep the container running
-CMD ["bash"]
+# Expose NoVNC web port
+EXPOSE 6080
+
+# Create a new entrypoint script
+RUN echo '#!/bin/bash\n\n# Start VNC in background\n/start_vnc.sh &\n\n# Keep the container running\nexec "$@"' > /entrypoint.sh && chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["bash", "-c", "while true; do sleep 1; done"]
